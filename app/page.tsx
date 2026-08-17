@@ -6,26 +6,16 @@ export const dynamic = 'force-dynamic'
 export default async function HomePage() {
   const supabase = await createClient()
 
-  // Get site settings
-  const { data: settings } = await supabase
-    .from('site_settings')
-    .select('*')
-    .eq('id', 'global')
-    .single()
-
-  // Get all active links without category
-  const { data: standaloneLinks } = await supabase
-    .from('links')
-    .select('*')
-    .eq('is_active', true)
-    .is('category_id', null)
-    .order('sort_order', { ascending: true })
-
-  // Get all categories with their active links
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*, links(*)')
-    .order('sort_order', { ascending: true })
+  // Run all database queries in parallel for high performance
+  const [
+    { data: settings },
+    { data: standaloneLinks },
+    { data: categories },
+  ] = await Promise.all([
+    supabase.from('site_settings').select('*').eq('id', 'global').single(),
+    supabase.from('links').select('*').eq('is_active', true).is('category_id', null).order('sort_order', { ascending: true }),
+    supabase.from('categories').select('*, links(*)').order('sort_order', { ascending: true }),
+  ])
 
   // Filter to only active links in categories
   const categoriesWithActiveLinks = categories?.map((category) => ({

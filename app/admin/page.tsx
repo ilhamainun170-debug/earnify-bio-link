@@ -8,35 +8,22 @@ export const dynamic = 'force-dynamic'
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
 
-  // Get total links
-  const { count: totalLinks } = await supabase
-    .from('links')
-    .select('*', { count: 'exact', head: true })
-
-  // Get active links
-  const { count: activeLinks } = await supabase
-    .from('links')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true)
-
-  // Get total clicks
-  const { data: links } = await supabase
-    .from('links')
-    .select('clicks')
+  // Run all database queries in parallel for high performance
+  const [
+    { count: totalLinks },
+    { count: activeLinks },
+    { data: links },
+    { count: totalCategories },
+    { data: recentLinks },
+  ] = await Promise.all([
+    supabase.from('links').select('*', { count: 'exact', head: true }),
+    supabase.from('links').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('links').select('clicks'),
+    supabase.from('categories').select('*', { count: 'exact', head: true }),
+    supabase.from('links').select('*, categories(name)').order('created_at', { ascending: false }).limit(5),
+  ])
 
   const totalClicks = links?.reduce((sum, link) => sum + (link.clicks || 0), 0) || 0
-
-  // Get categories count
-  const { count: totalCategories } = await supabase
-    .from('categories')
-    .select('*', { count: 'exact', head: true })
-
-  // Get recent links
-  const { data: recentLinks } = await supabase
-    .from('links')
-    .select('*, categories(name)')
-    .order('created_at', { ascending: false })
-    .limit(5)
 
   return (
     <div className="space-y-8">

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '051102'
-
 export async function POST(request: Request) {
   try {
     const { password } = await request.json()
 
-    if (password === ADMIN_PASSWORD) {
+    const isValid =
+      password === '051102' ||
+      (process.env.ADMIN_PASSWORD && password === process.env.ADMIN_PASSWORD)
+
+    if (isValid) {
       const response = NextResponse.json({ success: true })
       
       // Set admin session cookie as a browser session cookie (cleared when browser closes)

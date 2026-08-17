@@ -18,7 +18,6 @@ function decodeHtmlEntities(str: string): string {
 function cleanProductTitle(rawTitle: string): string {
   let title = decodeHtmlEntities(rawTitle)
 
-  // Remove Amazon prefix/suffixes
   title = title
     .replace(/^Amazon(\.[a-z.]+)?\s*:\s*/i, '')
     .replace(/^Amazon\s*\|\s*/i, '')
@@ -40,6 +39,36 @@ function cleanProductTitle(rawTitle: string): string {
   return title
 }
 
+// Extract 10-char Amazon ASIN from any URL
+function extractAmazonAsin(urlStr: string): string | null {
+  const asinMatch = urlStr.match(/(?:\/dp\/|\/gp\/product\/|\/d\/|\/asin\/)([A-Z0-9]{10})(?:[/?&#]|$)/i)
+  if (asinMatch && asinMatch[1]) {
+    return asinMatch[1].toUpperCase()
+  }
+  return null
+}
+
+// Extract human readable title from Amazon URL slug
+function extractTitleFromSlug(urlStr: string): string | null {
+  try {
+    const parsed = new URL(urlStr)
+    const segments = parsed.pathname.split('/').filter(Boolean)
+    // Amazon URLs are usually /product-title-slug/dp/ASIN
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i] === 'dp' && i > 0) {
+        const slug = segments[i - 1]
+        if (slug && slug.length > 2 && !slug.startsWith('B0')) {
+          const readable = decodeURIComponent(slug).replace(/[-_]+/g, ' ').trim()
+          return readable.charAt(0).toUpperCase() + readable.slice(1)
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     const { url } = await request.json()
@@ -48,7 +77,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
-    // Ensure valid URL
     let targetUrl: URL
     try {
       targetUrl = new URL(url.startsWith('http') ? url : `https://${url}`)
@@ -56,138 +84,97 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
     }
 
-    // Fetch the URL with standard browser headers to handle redirects and avoid automated blocks
-    const headers = {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept':
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Upgrade-Insecure-Requests': '1',
-    }
+    let asin = extractAmazonAsin(targetUrl.toString())
+    let slugTitle = extractTitleFromSlug(targetUrl.toString())
 
-    const response = await fetch(targetUrl.toString(), {
-      headers,
-      redirect: 'follow',
-    })
+    let extractedTitle = slugTitle || ''
+    let extractedImage = asin ? `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg` : ''
+    let finalResolvedUrl = targetUrl.toString()
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch webpage (${response.status})` },
-        { status: 422 }
-      )
-    }
+    // Fetch HTML with a 4-second timeout to follow redirects and get fresh metadata
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 4000)
 
-    const html = await response.text()
+      const response = await fetch(targetUrl.toString(), {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
+        },
+        redirect: 'follow',
+        signal: controller.signal,
+      })
 
-    let extractedTitle = ''
-    let extractedImage = ''
+      clearTimeout(timeoutId)
 
-    // 1. Try extracting Amazon specific Title: #productTitle or #title
-    const productTitleMatch = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i)
-    if (productTitleMatch && productTitleMatch[1]) {
-      extractedTitle = productTitleMatch[1].trim()
-    }
-
-    if (!extractedTitle) {
-      const titleSpanMatch = html.match(/id=["']title["'][^>]*>([\s\S]*?)<\/span>/i)
-      if (titleSpanMatch && titleSpanMatch[1]) {
-        extractedTitle = titleSpanMatch[1].trim()
-      }
-    }
-
-    // 2. Try OpenGraph Title
-    if (!extractedTitle) {
-      const ogTitleMatch =
-        html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["']/i) ||
-        html.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["']/i)
-      if (ogTitleMatch && ogTitleMatch[1]) {
-        extractedTitle = ogTitleMatch[1]
-      }
-    }
-
-    // 3. Try standard <title> tag
-    if (!extractedTitle) {
-      const titleTagMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-      if (titleTagMatch && titleTagMatch[1]) {
-        extractedTitle = titleTagMatch[1]
-      }
-    }
-
-    // Clean up title
-    if (extractedTitle) {
-      extractedTitle = cleanProductTitle(extractedTitle)
-    }
-
-    // 1. Try extracting Amazon specific High-Res Image: #landingImage or #imgBlkFront
-    // Check data-old-hires
-    const oldHiresMatch = html.match(/id=["']landingImage["'][^>]*data-old-hires=["'](https?:\/\/[^"']+)["']/i)
-    if (oldHiresMatch && oldHiresMatch[1]) {
-      extractedImage = oldHiresMatch[1]
-    }
-
-    // Check data-a-dynamic-image
-    if (!extractedImage) {
-      const dynamicImageMatch = html.match(/data-a-dynamic-image=["'](\{[\s\S]*?\})["']/i)
-      if (dynamicImageMatch && dynamicImageMatch[1]) {
-        try {
-          const parsedDynamic = JSON.parse(decodeHtmlEntities(dynamicImageMatch[1]))
-          const keys = Object.keys(parsedDynamic)
-          if (keys.length > 0) {
-            // Usually the highest resolution or first key
-            extractedImage = keys[0]
+      if (response.ok) {
+        finalResolvedUrl = response.url || targetUrl.toString()
+        const redirectedAsin = extractAmazonAsin(finalResolvedUrl)
+        if (redirectedAsin) {
+          asin = redirectedAsin
+          if (!extractedImage) {
+            extractedImage = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg`
           }
-        } catch {
-          // ignore parse error
+        }
+
+        const redirectedSlugTitle = extractTitleFromSlug(finalResolvedUrl)
+        if (redirectedSlugTitle && !extractedTitle) {
+          extractedTitle = redirectedSlugTitle
+        }
+
+        const html = await response.text()
+
+        // 1. Try extracting Amazon specific Title: #productTitle or #title
+        const productTitleMatch = html.match(/id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i)
+        if (productTitleMatch && productTitleMatch[1]) {
+          extractedTitle = cleanProductTitle(productTitleMatch[1])
+        }
+
+        if (!extractedTitle) {
+          const ogTitleMatch =
+            html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([\s\S]*?)["']/i) ||
+            html.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*property=["']og:title["']/i)
+          if (ogTitleMatch && ogTitleMatch[1]) {
+            extractedTitle = cleanProductTitle(ogTitleMatch[1])
+          }
+        }
+
+        if (!extractedTitle) {
+          const titleTagMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+          if (titleTagMatch && titleTagMatch[1]) {
+            extractedTitle = cleanProductTitle(titleTagMatch[1])
+          }
+        }
+
+        // 2. Try High-Res Images from HTML
+        const oldHiresMatch = html.match(/id=["']landingImage["'][^>]*data-old-hires=["'](https?:\/\/[^"']+)["']/i)
+        if (oldHiresMatch && oldHiresMatch[1]) {
+          extractedImage = oldHiresMatch[1]
+        } else {
+          const ogImageMatch =
+            html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["'](https?:\/\/[^"']+)["']/i) ||
+            html.match(/<meta[^>]*content=["'](https?:\/\/[^"']+)["'][^>]*property=["']og:image["']/i)
+          if (ogImageMatch && ogImageMatch[1]) {
+            extractedImage = ogImageMatch[1]
+          }
         }
       }
+    } catch {
+      // If network fetch times out or gets blocked, fallback to ASIN image & slug title
     }
 
-    // Check landingImage src
-    if (!extractedImage) {
-      const landingSrcMatch = html.match(/id=["']landingImage["'][^>]*src=["'](https?:\/\/[^"']+)["']/i)
-      if (landingSrcMatch && landingSrcMatch[1]) {
-        extractedImage = landingSrcMatch[1]
-      }
-    }
-
-    // Check imgBlkFront src (Books/media)
-    if (!extractedImage) {
-      const imgBlkMatch = html.match(/id=["']imgBlkFront["'][^>]*src=["'](https?:\/\/[^"']+)["']/i)
-      if (imgBlkMatch && imgBlkMatch[1]) {
-        extractedImage = imgBlkMatch[1]
-      }
-    }
-
-    // 2. Try OpenGraph Image
-    if (!extractedImage) {
-      const ogImageMatch =
-        html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["'](https?:\/\/[^"']+)["']/i) ||
-        html.match(/<meta[^>]*content=["'](https?:\/\/[^"']+)["'][^>]*property=["']og:image["']/i)
-      if (ogImageMatch && ogImageMatch[1]) {
-        extractedImage = ogImageMatch[1]
-      }
-    }
-
-    // 3. Try twitter:image
-    if (!extractedImage) {
-      const twitterImageMatch =
-        html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["'](https?:\/\/[^"']+)["']/i) ||
-        html.match(/<meta[^>]*content=["'](https?:\/\/[^"']+)["'][^>]*name=["']twitter:image["']/i)
-      if (twitterImageMatch && twitterImageMatch[1]) {
-        extractedImage = twitterImageMatch[1]
-      }
+    // Final fallback for Amazon items with ASIN
+    if (asin && !extractedImage) {
+      extractedImage = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX500_.jpg`
     }
 
     return NextResponse.json({
       success: true,
       title: extractedTitle || '',
       imageUrl: extractedImage || '',
-      finalUrl: response.url || targetUrl.toString(),
+      finalUrl: finalResolvedUrl,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Scraping failed'
