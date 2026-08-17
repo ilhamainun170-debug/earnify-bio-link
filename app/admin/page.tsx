@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getLinks, getCategories } from '@/lib/db'
 import { DashboardStats } from '@/components/admin/dashboard-stats'
 import { QuickActions } from '@/components/admin/quick-actions'
 import { RecentLinks } from '@/components/admin/recent-links'
@@ -6,37 +6,29 @@ import { RecentLinks } from '@/components/admin/recent-links'
 export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient()
-
-  // Run all database queries in parallel for high performance
-  const [
-    { count: totalLinks },
-    { count: activeLinks },
-    { data: links },
-    { count: totalCategories },
-    { data: recentLinks },
-  ] = await Promise.all([
-    supabase.from('links').select('*', { count: 'exact', head: true }),
-    supabase.from('links').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('links').select('clicks'),
-    supabase.from('categories').select('*', { count: 'exact', head: true }),
-    supabase.from('links').select('*, categories(name)').order('created_at', { ascending: false }).limit(5),
+  const [links, categories] = await Promise.all([
+    getLinks(),
+    getCategories(),
   ])
 
-  const totalClicks = links?.reduce((sum, link) => sum + (link.clicks || 0), 0) || 0
+  const totalLinks = links.length
+  const activeLinks = links.filter((l) => l.is_active).length
+  const totalClicks = links.reduce((sum, link) => sum + (link.clicks || 0), 0)
+  const totalCategories = categories.length
+  const recentLinks = [...links].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()).slice(0, 5)
 
   return (
     <div className="space-y-8">
       <DashboardStats
-        totalLinks={totalLinks || 0}
-        activeLinks={activeLinks || 0}
+        totalLinks={totalLinks}
+        activeLinks={activeLinks}
         totalClicks={totalClicks}
-        totalCategories={totalCategories || 0}
+        totalCategories={totalCategories}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <QuickActions />
-        <RecentLinks links={recentLinks || []} />
+        <RecentLinks links={recentLinks} />
       </div>
     </div>
   )

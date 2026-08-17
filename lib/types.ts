@@ -2,12 +2,17 @@ export interface Link {
   id: string
   title: string
   url: string
+  description?: string | null
+  price?: string | null
+  variant?: string | null
+  affiliate_url?: string | null
   category_id: string | null
   is_active: boolean
   sort_order: number
   clicks: number
   created_at: string
   image_url: string | null
+  categories?: { name: string } | null
 }
 
 export interface Category {

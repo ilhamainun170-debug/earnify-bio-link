@@ -10,7 +10,9 @@ import {
   ChevronDown,
   ExternalLink,
   AtSign,
-  X
+  X,
+  Tag,
+  DollarSign
 } from 'lucide-react'
 import type { Link, Category, SiteSettings } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -21,7 +23,6 @@ import {
 } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
-// Custom icon components for platforms not in lucide
 function MediumIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -71,17 +72,17 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-pink-500/10 to-transparent rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center px-4 py-12 md:py-20 max-w-2xl mx-auto">
+      <div className="relative z-10 flex flex-col items-center px-4 py-12 md:py-16 max-w-2xl mx-auto">
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex flex-col items-center text-center mb-10"
+          className="flex flex-col items-center text-center mb-8"
         >
           {/* Logo */}
           {settings.logo ? (
-            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden ring-4 ring-white/10 mb-6 shadow-2xl">
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden ring-4 ring-white/10 mb-5 shadow-2xl">
               <img
                 src={settings.logo}
                 alt={settings.name}
@@ -89,38 +90,38 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
               />
             </div>
           ) : (
-            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center ring-4 ring-white/10 mb-6 shadow-2xl">
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center ring-4 ring-white/10 mb-5 shadow-2xl">
               <AtSign className="w-12 h-12 text-white" />
             </div>
           )}
 
           {/* Name */}
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 text-balance break-words max-w-full">
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 text-balance break-words max-w-full">
             {settings.name}
           </h1>
 
           {/* Description */}
           {settings.description && (
-            <p className="text-slate-400 text-base md:text-lg max-w-lg text-pretty break-words whitespace-pre-wrap">
+            <p className="text-slate-400 text-sm md:text-base max-w-lg text-pretty break-words whitespace-pre-wrap">
               {settings.description}
             </p>
           )}
 
           {/* Social Icons */}
           {socialLinks.length > 0 && (
-            <div className="flex items-center gap-3 mt-6">
+            <div className="flex items-center gap-3 mt-5">
               {socialLinks.map((social) => (
                 <motion.a
                   key={social.key}
                   href={social.url!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-indigo-500/20"
+                  className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-indigo-500/20"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   aria-label={social.label}
                 >
-                  <social.icon className="w-5 h-5" />
+                  <social.icon className="w-4 h-4" />
                 </motion.a>
               ))}
             </div>
@@ -131,7 +132,7 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
         <div className="w-full space-y-4">
           {/* Standalone Links */}
           {standaloneLinks.map((link, index) => (
-            <LinkCard key={link.id} link={link} index={index} />
+            <ProductLinkCard key={link.id} link={link} index={index} />
           ))}
 
           {/* Category Dropdowns */}
@@ -148,9 +149,9 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-center py-12"
+              className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 p-6"
             >
-              <p className="text-slate-500">No links available yet.</p>
+              <p className="text-slate-400">Belum ada link produk yang aktif.</p>
             </motion.div>
           )}
         </div>
@@ -160,10 +161,10 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
-          className="mt-16 text-center"
+          className="mt-14 text-center"
         >
-          <p className="text-slate-600 text-sm">
-            Powered by LinkHub
+          <p className="text-slate-600 text-xs">
+            Powered by Earnify
           </p>
         </motion.footer>
       </div>
@@ -171,22 +172,23 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
   )
 }
 
-function LinkCard({ link, index }: { link: Link; index: number }) {
+function ProductLinkCard({ link, index }: { link: Link; index: number }) {
   const [isClicked, setIsClicked] = useState(false)
   const [showImagePopup, setShowImagePopup] = useState(false)
 
   const handleClick = async () => {
     setIsClicked(true)
     
-    // Track the click
+    // Track the click in background
     try {
-      await fetch(`/api/links/${link.id}/click`, { method: 'POST' })
-    } catch (error) {
-      console.error('Failed to track click:', error)
+      fetch(`/api/links/${link.id}/click`, { method: 'POST' }).catch(() => {})
+    } catch {
+      // ignore
     }
 
-    // Open the link
-    window.open(link.url, '_blank', 'noopener,noreferrer')
+    // Open target affiliate URL
+    const destination = link.affiliate_url || link.url
+    window.open(destination, '_blank', 'noopener,noreferrer')
     
     setTimeout(() => setIsClicked(false), 300)
   }
@@ -198,68 +200,105 @@ function LinkCard({ link, index }: { link: Link; index: number }) {
 
   return (
     <>
-      <motion.button
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: index * 0.1 }}
+        transition={{ duration: 0.4, delay: index * 0.08 }}
         onClick={handleClick}
         className={cn(
-          "w-full group relative overflow-hidden",
-          "bg-white/5 backdrop-blur-lg border border-white/10",
-          "rounded-2xl",
-          link.image_url ? "pl-3 pr-6 py-3" : "px-6 py-4",
-          "text-white font-medium",
+          "w-full group relative overflow-hidden cursor-pointer",
+          "bg-white/5 backdrop-blur-xl border border-white/10",
+          "rounded-2xl p-4",
           "transition-all duration-300",
-          "hover:bg-white/10 hover:border-white/20 hover:scale-[1.02]",
-          "hover:shadow-xl hover:shadow-indigo-500/10",
-          "focus:outline-none focus:ring-2 focus:ring-indigo-500/50",
+          "hover:bg-white/10 hover:border-white/20 hover:scale-[1.015]",
+          "hover:shadow-2xl hover:shadow-indigo-500/10",
           isClicked && "scale-95"
         )}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3.5">
+          {/* Product Thumbnail */}
           {link.image_url && (
             <div 
               onClick={handleImageClick}
-              className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-indigo-500/50 transition-all"
+              className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-black/30 border border-white/10 cursor-zoom-in hover:ring-2 hover:ring-indigo-500/50 transition-all p-1"
             >
               <img
                 src={link.image_url}
                 alt={link.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain rounded-lg"
               />
             </div>
           )}
-          <div className="flex-1 flex items-center justify-between min-w-0">
-            <span className="text-left break-words [overflow-wrap:anywhere] line-clamp-2 min-w-0 pr-2 leading-snug">{link.title}</span>
-            <ExternalLink className="w-4 h-4 flex-shrink-0 ml-2 text-slate-400 group-hover:text-white transition-colors" />
+
+          {/* Info Content */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            {/* Badges / Variant / Price Row */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {link.variant && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  {link.variant}
+                </span>
+              )}
+              {link.price && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold flex items-center gap-0.5">
+                  <DollarSign className="w-3 h-3" />
+                  {link.price}
+                </span>
+              )}
+            </div>
+
+            {/* Title */}
+            <h2 className="text-white font-semibold text-sm sm:text-base leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 text-left group-hover:text-indigo-300 transition-colors">
+              {link.title}
+            </h2>
+
+            {/* Description */}
+            {link.description && (
+              <p className="text-slate-400 text-xs sm:text-sm line-clamp-2 break-words text-left leading-relaxed">
+                {link.description}
+              </p>
+            )}
+
+            {/* Buy / View Button Bar */}
+            <div className="pt-1 flex items-center justify-between">
+              <span className="text-[11px] text-indigo-400 font-medium group-hover:underline flex items-center gap-1">
+                Lihat Produk
+                <ExternalLink className="w-3 h-3" />
+              </span>
+            </div>
           </div>
         </div>
         
         {/* Hover gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-pink-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-      </motion.button>
+      </motion.div>
 
       {/* Image Popup Dialog */}
       {link.image_url && (
         <Dialog open={showImagePopup} onOpenChange={setShowImagePopup}>
-          <DialogContent className="max-w-2xl p-0 bg-transparent border-none shadow-none">
+          <DialogContent className="max-w-xl p-0 bg-slate-950/95 border border-white/10 shadow-2xl rounded-2xl overflow-hidden backdrop-blur-2xl">
             <VisuallyHidden>
               <DialogTitle>{link.title}</DialogTitle>
             </VisuallyHidden>
-            <div className="relative">
+            <div className="relative p-6 flex flex-col items-center">
               <button
                 onClick={() => setShowImagePopup(false)}
-                className="absolute -top-10 right-0 p-2 text-white/80 hover:text-white transition-colors"
+                className="absolute top-3 right-3 p-1.5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
-              <img
-                src={link.image_url}
-                alt={link.title}
-                className="w-full h-auto rounded-lg shadow-2xl"
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg">
-                <p className="text-white font-medium">{link.title}</p>
+              <div className="w-full max-h-96 flex items-center justify-center p-4 bg-black/40 rounded-xl mb-4">
+                <img
+                  src={link.image_url}
+                  alt={link.title}
+                  className="max-h-80 max-w-full object-contain rounded-lg shadow-2xl"
+                />
+              </div>
+              <div className="w-full text-left space-y-1">
+                <h3 className="text-white font-semibold text-base break-words">{link.title}</h3>
+                {link.price && <p className="text-emerald-400 font-bold text-sm">{link.price}</p>}
+                {link.description && <p className="text-slate-400 text-xs break-words">{link.description}</p>}
               </div>
             </div>
           </DialogContent>
@@ -276,7 +315,7 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
+      transition={{ duration: 0.4, delay: index * 0.08 }}
       className="w-full"
     >
       <button
@@ -284,16 +323,20 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
         className={cn(
           "w-full group relative overflow-hidden",
           "bg-white/5 backdrop-blur-lg border border-white/10",
-          "rounded-2xl px-6 py-4",
-          "text-white font-medium",
+          "rounded-2xl px-5 py-4",
+          "text-white font-semibold text-sm sm:text-base",
           "transition-all duration-300",
           "hover:bg-white/10 hover:border-white/20",
-          "focus:outline-none focus:ring-2 focus:ring-indigo-500/50",
           isOpen && "bg-white/10 border-white/20"
         )}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="text-left break-words [overflow-wrap:anywhere] min-w-0 pr-2 leading-snug">{category.name}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-left break-words [overflow-wrap:anywhere] min-w-0 leading-snug">{category.name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-normal shrink-0">
+              {category.links.length} produk
+            </span>
+          </div>
           <motion.div
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2 }}
@@ -313,108 +356,14 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="pt-2 pl-4 space-y-2">
+            <div className="pt-3 space-y-3 pl-2 sm:pl-4">
               {category.links.map((link, linkIndex) => (
-                <CategoryLinkCard key={link.id} link={link} index={linkIndex} />
+                <ProductLinkCard key={link.id} link={link} index={linkIndex} />
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
-  )
-}
-
-function CategoryLinkCard({ link, index }: { link: Link; index: number }) {
-  const [isClicked, setIsClicked] = useState(false)
-  const [showImagePopup, setShowImagePopup] = useState(false)
-
-  const handleClick = async () => {
-    setIsClicked(true)
-    
-    // Track the click
-    try {
-      await fetch(`/api/links/${link.id}/click`, { method: 'POST' })
-    } catch (error) {
-      console.error('Failed to track click:', error)
-    }
-
-    // Open the link
-    window.open(link.url, '_blank', 'noopener,noreferrer')
-    
-    setTimeout(() => setIsClicked(false), 300)
-  }
-
-  const handleImageClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setShowImagePopup(true)
-  }
-
-  return (
-    <>
-      <motion.button
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.2, delay: index * 0.05 }}
-        onClick={handleClick}
-        className={cn(
-          "w-full group relative overflow-hidden",
-          "bg-white/3 backdrop-blur-lg border border-white/5",
-          "rounded-xl",
-          link.image_url ? "pl-2 pr-5 py-2" : "px-5 py-3",
-          "text-white/90 font-medium text-sm",
-          "transition-all duration-300",
-          "hover:bg-white/8 hover:border-white/10 hover:scale-[1.01]",
-          "focus:outline-none focus:ring-2 focus:ring-indigo-500/50",
-          isClicked && "scale-95"
-        )}
-      >
-        <div className="flex items-center gap-2">
-          {link.image_url && (
-            <div 
-              onClick={handleImageClick}
-              className="relative flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden cursor-zoom-in hover:ring-2 hover:ring-indigo-500/50 transition-all"
-            >
-              <img
-                src={link.image_url}
-                alt={link.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-          <div className="flex-1 flex items-center justify-between min-w-0">
-            <span className="text-left break-words [overflow-wrap:anywhere] line-clamp-2 min-w-0 pr-2 leading-snug">{link.title}</span>
-            <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 ml-2 text-slate-500 group-hover:text-white/80 transition-colors" />
-          </div>
-        </div>
-      </motion.button>
-
-      {/* Image Popup Dialog */}
-      {link.image_url && (
-        <Dialog open={showImagePopup} onOpenChange={setShowImagePopup}>
-          <DialogContent className="max-w-2xl p-0 bg-transparent border-none shadow-none">
-            <VisuallyHidden>
-              <DialogTitle>{link.title}</DialogTitle>
-            </VisuallyHidden>
-            <div className="relative">
-              <button
-                onClick={() => setShowImagePopup(false)}
-                className="absolute -top-10 right-0 p-2 text-white/80 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <img
-                src={link.image_url}
-                alt={link.title}
-                className="w-full h-auto rounded-lg shadow-2xl"
-              />
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg">
-                <p className="text-white font-medium">{link.title}</p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
   )
 }

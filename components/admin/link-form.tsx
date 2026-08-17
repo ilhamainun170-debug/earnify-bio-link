@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -16,14 +17,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { ImageIcon, Sparkles, Loader2 } from 'lucide-react'
+import { ImageIcon, Sparkles, Loader2, Tag, DollarSign, ExternalLink } from 'lucide-react'
 import type { Link, Category } from '@/lib/types'
 
 const linkSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  url: z.string().url('Please enter a valid URL'),
+  url: z.string().min(1, 'URL is required'),
+  description: z.string().optional(),
+  price: z.string().optional(),
+  variant: z.string().optional(),
+  affiliateUrl: z.string().optional(),
   categoryId: z.string().optional(),
-  imageUrl: z.string().url('Please enter a valid image URL').optional().or(z.literal('')),
+  imageUrl: z.string().optional(),
 })
 
 type LinkFormValues = z.infer<typeof linkSchema>
@@ -51,6 +56,10 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
     defaultValues: {
       title: link?.title || '',
       url: link?.url || '',
+      description: link?.description || '',
+      price: link?.price || '',
+      variant: link?.variant || '',
+      affiliateUrl: link?.affiliate_url || '',
       categoryId: link?.category_id || undefined,
       imageUrl: link?.image_url || '',
     },
@@ -93,10 +102,14 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
         updatedCount++
       }
 
+      if (!watch('affiliateUrl')) {
+        setValue('affiliateUrl', target)
+      }
+
       if (updatedCount > 0) {
         toast.success('Data produk Amazon berhasil diambil otomatis!')
       } else {
-        toast.info('Halaman terhubung, namun tidak menemukan judul/gambar khusus. Silakan isi manual.')
+        toast.info('Halaman terhubung, silakan lengkapi form di bawah.')
       }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Gagal mengambil data'
@@ -114,7 +127,6 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
         pastedText.includes('amzn.to') ||
         pastedText.includes('a.co'))
     ) {
-      // Auto-trigger fetch when an Amazon link is pasted
       setTimeout(() => {
         handleAutoFetch(pastedText)
       }, 100)
@@ -133,6 +145,10 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
         body: JSON.stringify({
           title: data.title,
           url: data.url,
+          description: data.description || null,
+          price: data.price || null,
+          variant: data.variant || null,
+          affiliateUrl: data.affiliateUrl || data.url,
           categoryId: data.categoryId === 'none' ? null : data.categoryId,
           imageUrl: showImage && data.imageUrl ? data.imageUrl : null,
         }),
@@ -140,30 +156,34 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
 
       if (res.ok) {
         const savedLink = await res.json()
-        toast.success(link ? 'Link updated' : 'Link created')
+        toast.success(link ? 'Link berhasil diperbarui' : 'Link berhasil dibuat')
         onSaved(savedLink)
       } else {
-        toast.error('Failed to save link')
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Gagal menyimpan link')
       }
     } catch {
-      toast.error('Something went wrong')
+      toast.error('Terjadi kesalahan saat menyimpan link')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+      {/* URL Input & Auto-fill */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="url" className="text-white">URL / Link Affiliate</Label>
+          <Label htmlFor="url" className="text-white text-sm font-medium">
+            URL Produk / Link Toko
+          </Label>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             disabled={isFetchingMeta || !currentUrl}
             onClick={() => handleAutoFetch()}
-            className="h-7 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 gap-1.5"
+            className="h-7 px-2.5 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 gap-1.5"
           >
             {isFetchingMeta ? (
               <>
@@ -173,7 +193,7 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                Auto-fill dari Amazon/Link
+                Auto-fill dari Amazon
               </>
             )}
           </Button>
@@ -183,43 +203,104 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
             id="url"
             {...register('url')}
             onPaste={handleUrlPaste}
-            placeholder="https://amzn.to/xxx atau https://example.com"
-            className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+            placeholder="https://amzn.to/xxx atau https://amazon.com/dp/..."
+            className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
           />
         </div>
-        <p className="text-xs text-slate-500">
-          💡 Tempel link Amazon/affiliate untuk otomatis mengisi judul dan foto produk.
+        <p className="text-xs text-slate-400">
+          💡 Tempel link produk Amazon (termasuk link affiliate <code className="text-indigo-400">amzn.to</code>) untuk auto-fill.
         </p>
         {errors.url && (
           <p className="text-sm text-destructive">{errors.url.message}</p>
         )}
       </div>
 
+      {/* Link Affiliate Khusus (Opsional jika beda dengan URL toko) */}
       <div className="space-y-2">
-        <Label htmlFor="title" className="text-white">Title / Nama Produk</Label>
+        <Label htmlFor="affiliateUrl" className="text-white text-sm flex items-center gap-1.5">
+          <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+          Link Affiliate (Tautan Tujuan Klik)
+        </Label>
+        <Input
+          id="affiliateUrl"
+          {...register('affiliateUrl')}
+          placeholder="https://amzn.to/your-tag (kosongkan jika sama dengan URL di atas)"
+          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl text-xs sm:text-sm"
+        />
+      </div>
+
+      {/* Title */}
+      <div className="space-y-2">
+        <Label htmlFor="title" className="text-white text-sm font-medium">
+          Judul / Nama Produk *
+        </Label>
         <Input
           id="title"
           {...register('title')}
-          placeholder="Nama produk atau judul link"
-          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+          placeholder="Contoh: Apple AirPods Pro Gen 2"
+          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
         />
         {errors.title && (
           <p className="text-sm text-destructive">{errors.title.message}</p>
         )}
       </div>
 
+      {/* Description */}
       <div className="space-y-2">
-        <Label className="text-white">Category (Optional)</Label>
+        <Label htmlFor="description" className="text-white text-sm font-medium">
+          Deskripsi Produk
+        </Label>
+        <Textarea
+          id="description"
+          {...register('description')}
+          placeholder="Tulis deskripsi singkat atau keunggulan produk ini..."
+          rows={2}
+          className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl resize-none"
+        />
+      </div>
+
+      {/* Grid: Harga & Varian/Badge */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="price" className="text-white text-sm flex items-center gap-1.5">
+            <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+            Harga (Price)
+          </Label>
+          <Input
+            id="price"
+            {...register('price')}
+            placeholder="Contoh: $199 atau Rp 2.500.000"
+            className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="variant" className="text-white text-sm flex items-center gap-1.5">
+            <Tag className="w-3.5 h-3.5 text-amber-400" />
+            Varian / Label / Badge
+          </Label>
+          <Input
+            id="variant"
+            {...register('variant')}
+            placeholder="Contoh: Diskon 30% / Best Seller"
+            className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl"
+          />
+        </div>
+      </div>
+
+      {/* Category */}
+      <div className="space-y-2">
+        <Label className="text-white text-sm font-medium">Kategori</Label>
         <Select
           value={categoryId || 'none'}
           onValueChange={(value) => setValue('categoryId', value === 'none' ? undefined : value)}
         >
-          <SelectTrigger className="bg-white/5 border-white/10 text-white">
-            <SelectValue placeholder="Select a category" />
+          <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-xl">
+            <SelectValue placeholder="Pilih kategori" />
           </SelectTrigger>
           <SelectContent className="bg-slate-900 border-white/10">
             <SelectItem value="none" className="text-white focus:bg-white/10 focus:text-white">
-              No Category
+              Tanpa Kategori (Standalone)
             </SelectItem>
             {categories.map((category) => (
               <SelectItem
@@ -235,11 +316,13 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
       </div>
 
       {/* Image Toggle */}
-      <div className="space-y-4">
+      <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-slate-400" />
-            <Label htmlFor="show-image" className="text-white">Add Thumbnail Image</Label>
+            <Label htmlFor="show-image" className="text-white text-sm cursor-pointer">
+              Gunakan Foto Thumbnail Produk
+            </Label>
           </div>
           <Switch
             id="show-image"
@@ -255,22 +338,19 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
 
         {showImage && (
           <div className="space-y-2">
-            <Label htmlFor="imageUrl" className="text-white">Image URL</Label>
+            <Label htmlFor="imageUrl" className="text-white text-xs text-slate-400">URL Gambar</Label>
             <Input
               id="imageUrl"
               {...register('imageUrl')}
-              placeholder="https://example.com/image.jpg"
-              className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+              placeholder="https://images-na.ssl-images-amazon.com/..."
+              className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 rounded-xl text-xs"
             />
-            {errors.imageUrl && (
-              <p className="text-sm text-destructive">{errors.imageUrl.message}</p>
-            )}
             {watch('imageUrl') && (
-              <div className="mt-2 rounded-lg overflow-hidden border border-white/10">
+              <div className="mt-2 rounded-xl overflow-hidden border border-white/10 max-w-xs mx-auto bg-black/20 p-2">
                 <img
                   src={watch('imageUrl')}
                   alt="Preview"
-                  className="w-full h-32 object-cover"
+                  className="w-full h-36 object-contain rounded-lg"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none'
                   }}
@@ -281,21 +361,21 @@ export function LinkForm({ link, categories, onSaved, onCancel }: LinkFormProps)
         )}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4">
+      <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
         <Button
           type="button"
           variant="ghost"
           onClick={onCancel}
-          className="text-slate-400 hover:text-white hover:bg-white/10"
+          className="text-slate-400 hover:text-white hover:bg-white/10 rounded-xl"
         >
-          Cancel
+          Batal
         </Button>
         <Button
           type="submit"
           disabled={isLoading}
-          className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400"
+          className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl shadow-lg shadow-indigo-500/20"
         >
-          {isLoading ? 'Saving...' : link ? 'Update Link' : 'Create Link'}
+          {isLoading ? 'Menyimpan...' : link ? 'Simpan Perubahan' : 'Buat Link Produk'}
         </Button>
       </div>
     </form>
