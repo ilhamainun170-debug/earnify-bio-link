@@ -10,9 +10,7 @@ import {
   ChevronDown,
   ExternalLink,
   AtSign,
-  X,
-  Tag,
-  DollarSign
+  X
 } from 'lucide-react'
 import type { Link, Category, SiteSettings } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -72,7 +70,7 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-pink-500/10 to-transparent rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center px-4 py-12 md:py-16 max-w-2xl mx-auto">
+      <div className="relative z-10 flex flex-col items-center px-4 py-12 md:py-16 max-w-xl mx-auto">
         {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -82,7 +80,7 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
         >
           {/* Logo */}
           {settings.logo ? (
-            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden ring-4 ring-white/10 mb-5 shadow-2xl">
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden ring-4 ring-white/10 mb-4 shadow-2xl">
               <img
                 src={settings.logo}
                 alt={settings.name}
@@ -90,7 +88,7 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
               />
             </div>
           ) : (
-            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center ring-4 ring-white/10 mb-5 shadow-2xl">
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center ring-4 ring-white/10 mb-4 shadow-2xl">
               <AtSign className="w-12 h-12 text-white" />
             </div>
           )}
@@ -102,21 +100,21 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
 
           {/* Description */}
           {settings.description && (
-            <p className="text-slate-400 text-sm md:text-base max-w-lg text-pretty break-words whitespace-pre-wrap">
+            <p className="text-slate-400 text-sm md:text-base max-w-md text-pretty break-words whitespace-pre-wrap">
               {settings.description}
             </p>
           )}
 
           {/* Social Icons */}
           {socialLinks.length > 0 && (
-            <div className="flex items-center gap-3 mt-5">
+            <div className="flex items-center gap-3 mt-4">
               {socialLinks.map((social) => (
                 <motion.a
                   key={social.key}
                   href={social.url!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-indigo-500/20"
+                  className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-all duration-300 hover:scale-110"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   aria-label={social.label}
@@ -129,10 +127,10 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
         </motion.div>
 
         {/* Links Section */}
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-3">
           {/* Standalone Links */}
           {standaloneLinks.map((link, index) => (
-            <ProductLinkCard key={link.id} link={link} index={index} />
+            <LinkCard key={link.id} link={link} index={index} />
           ))}
 
           {/* Category Dropdowns */}
@@ -149,9 +147,9 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 p-6"
+              className="text-center py-12"
             >
-              <p className="text-slate-400">Belum ada link produk yang aktif.</p>
+              <p className="text-slate-500">Belum ada link yang tersedia.</p>
             </motion.div>
           )}
         </div>
@@ -172,24 +170,19 @@ export function PublicView({ settings, standaloneLinks, categories }: PublicView
   )
 }
 
-function ProductLinkCard({ link, index }: { link: Link; index: number }) {
+function LinkCard({ link, index }: { link: Link; index: number }) {
   const [isClicked, setIsClicked] = useState(false)
   const [showImagePopup, setShowImagePopup] = useState(false)
 
   const handleClick = async () => {
     setIsClicked(true)
     
-    // Track the click in background
+    // Track click
     try {
       fetch(`/api/links/${link.id}/click`, { method: 'POST' }).catch(() => {})
-    } catch {
-      // ignore
-    }
+    } catch {}
 
-    // Open target affiliate URL
-    const destination = link.affiliate_url || link.url
-    window.open(destination, '_blank', 'noopener,noreferrer')
-    
+    window.open(link.url, '_blank', 'noopener,noreferrer')
     setTimeout(() => setIsClicked(false), 300)
   }
 
@@ -200,27 +193,28 @@ function ProductLinkCard({ link, index }: { link: Link; index: number }) {
 
   return (
     <>
-      <motion.div
+      <motion.button
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: index * 0.08 }}
         onClick={handleClick}
         className={cn(
-          "w-full group relative overflow-hidden cursor-pointer",
-          "bg-white/5 backdrop-blur-xl border border-white/10",
-          "rounded-2xl p-4",
+          "w-full group relative overflow-hidden text-left",
+          "bg-white/5 backdrop-blur-lg border border-white/10",
+          "rounded-2xl",
+          link.image_url ? "p-3" : "px-5 py-4",
+          "text-white font-medium",
           "transition-all duration-300",
           "hover:bg-white/10 hover:border-white/20 hover:scale-[1.015]",
-          "hover:shadow-2xl hover:shadow-indigo-500/10",
+          "hover:shadow-xl hover:shadow-indigo-500/10",
           isClicked && "scale-95"
         )}
       >
-        <div className="flex items-start gap-3.5">
-          {/* Product Thumbnail */}
+        <div className="flex items-center gap-3">
           {link.image_url && (
             <div 
               onClick={handleImageClick}
-              className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-black/30 border border-white/10 cursor-zoom-in hover:ring-2 hover:ring-indigo-500/50 transition-all p-1"
+              className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-black/20 border border-white/10 cursor-zoom-in hover:ring-2 hover:ring-indigo-500/50 transition-all p-0.5"
             >
               <img
                 src={link.image_url}
@@ -229,50 +223,17 @@ function ProductLinkCard({ link, index }: { link: Link; index: number }) {
               />
             </div>
           )}
-
-          {/* Info Content */}
-          <div className="flex-1 min-w-0 space-y-1.5">
-            {/* Badges / Variant / Price Row */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {link.variant && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium flex items-center gap-1">
-                  <Tag className="w-3 h-3" />
-                  {link.variant}
-                </span>
-              )}
-              {link.price && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold flex items-center gap-0.5">
-                  <DollarSign className="w-3 h-3" />
-                  {link.price}
-                </span>
-              )}
-            </div>
-
-            {/* Title */}
-            <h2 className="text-white font-semibold text-sm sm:text-base leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 text-left group-hover:text-indigo-300 transition-colors">
+          <div className="flex-1 flex items-center justify-between min-w-0 pr-1">
+            <span className="text-sm font-medium leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 min-w-0 pr-2">
               {link.title}
-            </h2>
-
-            {/* Description */}
-            {link.description && (
-              <p className="text-slate-400 text-xs sm:text-sm line-clamp-2 break-words text-left leading-relaxed">
-                {link.description}
-              </p>
-            )}
-
-            {/* Buy / View Button Bar */}
-            <div className="pt-1 flex items-center justify-between">
-              <span className="text-[11px] text-indigo-400 font-medium group-hover:underline flex items-center gap-1">
-                Lihat Produk
-                <ExternalLink className="w-3 h-3" />
-              </span>
-            </div>
+            </span>
+            <ExternalLink className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-white transition-colors" />
           </div>
         </div>
         
         {/* Hover gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/5 to-pink-500/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-      </motion.div>
+      </motion.button>
 
       {/* Image Popup Dialog */}
       {link.image_url && (
@@ -295,11 +256,7 @@ function ProductLinkCard({ link, index }: { link: Link; index: number }) {
                   className="max-h-80 max-w-full object-contain rounded-lg shadow-2xl"
                 />
               </div>
-              <div className="w-full text-left space-y-1">
-                <h3 className="text-white font-semibold text-base break-words">{link.title}</h3>
-                {link.price && <p className="text-emerald-400 font-bold text-sm">{link.price}</p>}
-                {link.description && <p className="text-slate-400 text-xs break-words">{link.description}</p>}
-              </div>
+              <p className="text-white font-medium text-sm text-center break-words">{link.title}</p>
             </div>
           </DialogContent>
         </Dialog>
@@ -324,7 +281,7 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
           "w-full group relative overflow-hidden",
           "bg-white/5 backdrop-blur-lg border border-white/10",
           "rounded-2xl px-5 py-4",
-          "text-white font-semibold text-sm sm:text-base",
+          "text-white font-medium text-sm",
           "transition-all duration-300",
           "hover:bg-white/10 hover:border-white/20",
           isOpen && "bg-white/10 border-white/20"
@@ -334,7 +291,7 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-left break-words [overflow-wrap:anywhere] min-w-0 leading-snug">{category.name}</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-normal shrink-0">
-              {category.links.length} produk
+              {category.links.length}
             </span>
           </div>
           <motion.div
@@ -356,9 +313,9 @@ function CategoryDropdown({ category, index }: { category: Category & { links: L
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="pt-3 space-y-3 pl-2 sm:pl-4">
+            <div className="pt-2 pl-3 space-y-2">
               {category.links.map((link, linkIndex) => (
-                <ProductLinkCard key={link.id} link={link} index={linkIndex} />
+                <LinkCard key={link.id} link={link} index={linkIndex} />
               ))}
             </div>
           </motion.div>
